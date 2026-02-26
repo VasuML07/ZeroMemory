@@ -11,7 +11,7 @@ The system is intentionally designed to be fast, cost-efficient, and privacy-foc
 
 ## 🔗 Live Application
 
-🌐 https://zeromemory-12.streamlit.app/
+🌐 https://zeromemory-mcupmffc8s3jjkkaphyjni.streamlit.app/
 
 ---
 
