@@ -1,7 +1,7 @@
 import os
 import time
 import streamlit as st
-import google.generativeai as genai
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # -------------------------
@@ -9,20 +9,22 @@ from dotenv import load_dotenv
 # -------------------------
 load_dotenv()
 
-# Get API key (Streamlit Cloud or local .env)
 api_key = None
 
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
+if "GROQ_API_KEY" in st.secrets:
+    api_key = st.secrets["GROQ_API_KEY"]
 else:
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
 
 if not api_key:
-    st.error("GEMINI_API_KEY not found. Add it to Streamlit secrets or .env file.")
+    st.error("GROQ_API_KEY not found. Add it to Streamlit secrets or .env file.")
     st.stop()
 
-# Configure Gemini
-genai.configure(api_key=api_key)
+# Initialize Groq client
+client = OpenAI(
+    api_key=api_key,
+    base_url="https://api.groq.com/openai/v1"
+)
 
 # -------------------------
 # Page config
@@ -41,15 +43,17 @@ st.caption("Stateless AI — every request is processed independently.")
 st.divider()
 
 # -------------------------
-# Sidebar controls
+# Sidebar
 # -------------------------
 st.sidebar.header("Settings")
 
 model_name = st.sidebar.selectbox(
     "Model",
     [
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro-latest"
+        "llama3-8b-8192",
+        "llama3-70b-8192",
+        "mixtral-8x7b-32768",
+        "gemma2-9b-it"
     ]
 )
 
@@ -101,40 +105,27 @@ if "prompt" in st.session_state and not user_input:
     user_input = st.session_state.prompt
     del st.session_state.prompt
 
-
 # -------------------------
 # Response function
 # -------------------------
-@st.cache_resource
-def load_model(name):
-    return genai.GenerativeModel(name)
-
-
 def get_response(user_message):
 
     start_time = time.time()
 
-    model = load_model(model_name)
-
-    response = model.generate_content(
-        user_message,
-        generation_config={
-            "temperature": temperature,
-            "max_output_tokens": max_tokens
-        }
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "user", "content": user_message}
+        ],
+        temperature=temperature,
+        max_tokens=max_tokens
     )
 
     latency = round(time.time() - start_time, 2)
 
-    text = ""
-
-    try:
-        text = response.text
-    except Exception:
-        text = "No response returned."
+    text = response.choices[0].message.content
 
     return text, latency
-
 
 # -------------------------
 # Display response
