@@ -5,23 +5,18 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 # -------------------------
-# Load env variables
+# Load environment
 # -------------------------
 load_dotenv()
 
-api_key = None
-
-if "GROQ_API_KEY" in st.secrets:
-    api_key = st.secrets["GROQ_API_KEY"]
-else:
-    api_key = os.getenv("GROQ_API_KEY")
+api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 
 if not api_key:
     st.error("GROQ_API_KEY not found.")
     st.stop()
 
 # -------------------------
-# Load Groq Client
+# Groq Client
 # -------------------------
 @st.cache_resource
 def load_client():
@@ -35,11 +30,11 @@ client = load_client()
 MODEL_NAME = "llama-3.1-8b-instant"
 
 # -------------------------
-# Page Config
+# Page
 # -------------------------
 st.set_page_config(
     page_title="ZeroMemory",
-    layout="wide"
+    layout="centered"
 )
 
 # -------------------------
@@ -49,15 +44,20 @@ st.markdown("""
 <style>
 
 .block-container{
-    max-width:1100px;
+    max-width:820px;
+    padding-top:3rem;
 }
 
-[data-testid="stSidebar"]{
-    background:linear-gradient(180deg,#0e1117,#090c10);
+h1{
+    font-weight:600;
 }
 
-.stChatMessage{
-    border-radius:16px;
+textarea{
+    border-radius:10px !important;
+}
+
+button{
+    border-radius:10px !important;
 }
 
 </style>
@@ -67,43 +67,37 @@ st.markdown("""
 # Header
 # -------------------------
 st.title("🧠 ZeroMemory")
-st.caption("Stateless AI — each request runs independently.")
+st.caption("Stateless AI — every request runs independently.")
 
 st.divider()
 
 # -------------------------
-# Sidebar Controls
+# Control Bar
 # -------------------------
-st.sidebar.header("Settings")
+col1, col2, col3 = st.columns(3)
 
-temperature = st.sidebar.slider("Temperature",0.0,1.0,0.5)
-max_tokens = st.sidebar.slider("Max Tokens",64,2048,512)
+with col1:
+    temperature = st.slider(
+        "Temperature",
+        0.0,1.0,0.5
+    )
 
-mode = st.sidebar.selectbox(
-"Thinking Mode",
-[
-"Normal",
-"Explain Simply",
-"Deep Analysis",
-"Code Expert",
-"Teacher Mode",
-"Startup Advisor"
-]
-)
+with col2:
+    max_tokens = st.slider(
+        "Max tokens",
+        64,2048,512
+    )
 
-output_format = st.sidebar.selectbox(
-"Output Format",
-[
-"Normal",
-"Bullet Summary",
-"Table",
-"Step-by-step"
-]
-)
-
-st.sidebar.divider()
-
-st.sidebar.caption("ZeroMemory stores no conversations.")
+with col3:
+    mode = st.selectbox(
+        "Mode",
+        [
+            "Normal",
+            "Explain Simply",
+            "Deep Analysis",
+            "Code Expert"
+        ]
+    )
 
 # -------------------------
 # Mode Prompts
@@ -112,83 +106,43 @@ mode_prompts = {
 "Normal":"",
 "Explain Simply":"Explain clearly so a beginner understands.",
 "Deep Analysis":"Provide a deep expert-level explanation.",
-"Code Expert":"Answer like a senior software engineer with code examples.",
-"Teacher Mode":"Explain as a teacher guiding a student.",
-"Startup Advisor":"Answer like a startup advisor with practical insight."
-}
-
-format_prompts = {
-"Normal":"",
-"Bullet Summary":"Respond using concise bullet points.",
-"Table":"Present the answer as a structured table.",
-"Step-by-step":"Explain step by step."
+"Code Expert":"Answer like a senior software engineer with code examples."
 }
 
 # -------------------------
-# Prompt History
-# -------------------------
-if "history" not in st.session_state:
-    st.session_state.history = []
-
-# -------------------------
-# Prompt Workspace
+# Prompt
 # -------------------------
 prompt = st.text_area(
 "Prompt",
 placeholder="Describe what you want the AI to generate...",
-height=120
+height=140
 )
 
-# -------------------------
-# Preset Prompts
-# -------------------------
-st.subheader("Quick Prompts")
-
-col1,col2,col3,col4 = st.columns(4)
-
-with col1:
-    if st.button("Explain quantum computing"):
-        prompt="Explain quantum computing simply"
-
-with col2:
-    if st.button("AI trends 2026"):
-        prompt="What are the biggest AI trends in AI?"
-
-with col3:
-    if st.button("Startup idea"):
-        prompt="Generate a startup idea using AI"
-
-with col4:
-    if st.button("Debug Python"):
-        prompt="Help debug this Python code"
+generate = st.button("Generate", use_container_width=True)
 
 # -------------------------
-# Run Button
-# -------------------------
-run = st.button("Generate")
-
-# -------------------------
-# Streaming Response
+# Response Generator
 # -------------------------
 def stream_response(user_prompt):
 
-    start=time.time()
+    start = time.time()
 
-    system_parts=[
-        mode_prompts[mode],
-        format_prompts[output_format]
-    ]
+    system_prompt = mode_prompts[mode]
 
-    system_prompt=" ".join([p for p in system_parts if p])
-
-    messages=[]
+    messages = []
 
     if system_prompt:
-        messages.append({"role":"system","content":system_prompt})
+        messages.append({
+            "role":"system",
+            "content":system_prompt
+        })
 
-    messages.append({"role":"user","content":user_prompt})
+    messages.append({
+        "role":"user",
+        "content":user_prompt
+    })
 
-    stream=client.chat.completions.create(
+    stream = client.chat.completions.create(
         model=MODEL_NAME,
         messages=messages,
         temperature=temperature,
@@ -196,89 +150,68 @@ def stream_response(user_prompt):
         stream=True
     )
 
-    full_text=""
-    placeholder=st.empty()
+    full_text = ""
+    placeholder = st.empty()
 
     for chunk in stream:
 
-        delta=chunk.choices[0].delta.content
+        delta = chunk.choices[0].delta.content
 
         if delta:
-            full_text+=delta
+            full_text += delta
             placeholder.markdown(full_text)
 
-    latency=round(time.time()-start,2)
+    latency = round(time.time() - start,2)
 
-    return full_text,latency
+    return full_text, latency
 
 # -------------------------
 # Run Generation
 # -------------------------
-if run and prompt:
+if generate and prompt:
 
-    st.session_state.history.append(prompt)
+    try:
 
-    with st.chat_message("user"):
-        st.write(prompt)
+        response_text, latency = stream_response(prompt)
 
-    with st.chat_message("assistant"):
+        st.divider()
 
-        try:
+        token_estimate = int(len(response_text.split()) * 1.3)
 
-            response_text,latency=stream_response(prompt)
-
-            st.divider()
-
-            token_estimate=int(len(response_text.split())*1.3)
-
-            st.caption(
+        st.caption(
             f"Model: {MODEL_NAME} | Latency: {latency}s | Estimated tokens: {token_estimate}"
-            )
+        )
 
-            # -------------------------
-            # Response Tools
-            # -------------------------
-            col1,col2,col3,col4,col5=st.columns(5)
+        # -------------------------
+        # Response Tools
+        # -------------------------
+        col1, col2, col3, col4 = st.columns(4)
 
-            with col1:
-                st.download_button(
+        with col1:
+            st.download_button(
                 "Download",
                 response_text,
-                file_name="response.txt"
-                )
+                file_name="response.txt",
+                use_container_width=True
+            )
 
-            with col2:
-                if st.button("Copy"):
-                    st.code(response_text)
+        with col2:
+            if st.button("Summarize", use_container_width=True):
+                st.rerun()
 
-            with col3:
-                if st.button("Summarize"):
-                    st.session_state.prompt=f"Summarize this:\n\n{response_text}"
-                    st.rerun()
+        with col3:
+            if st.button("Expand", use_container_width=True):
+                st.rerun()
 
-            with col4:
-                if st.button("Expand"):
-                    st.session_state.prompt=f"Expand this explanation:\n\n{response_text}"
-                    st.rerun()
+        with col4:
+            if st.button("Simplify", use_container_width=True):
+                st.rerun()
 
-            with col5:
-                if st.button("Simplify"):
-                    st.session_state.prompt=f"Explain this more simply:\n\n{response_text}"
-                    st.rerun()
+        # Expandable response
+        with st.expander("Full response"):
+            st.markdown(response_text)
 
-            # Expandable view
-            with st.expander("Full Response"):
-                st.markdown(response_text)
+    except Exception as e:
 
-        except Exception as e:
-
-            st.error("Request failed.")
-            st.code(str(e))
-
-# -------------------------
-# Prompt History Sidebar
-# -------------------------
-st.sidebar.subheader("Recent Prompts")
-
-for h in st.session_state.history[-5:][::-1]:
-    st.sidebar.write("•",h)
+        st.error("Request failed.")
+        st.code(str(e))
