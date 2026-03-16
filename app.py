@@ -47,12 +47,6 @@ st.divider()
 # -------------------------
 st.sidebar.header("Settings")
 
-model_name = st.sidebar.selectbox(
-    "Model",
-    [
-        "llama-3.1-8b-instant",
-    ]
-)
 
 temperature = st.sidebar.slider(
     "Temperature",
