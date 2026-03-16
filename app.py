@@ -44,7 +44,7 @@ st.markdown("""
 <style>
 
 .block-container{
-    max-width:820px;
+    max-width:900px;
     padding-top:3rem;
 }
 
@@ -54,10 +54,16 @@ h1{
 
 textarea{
     border-radius:10px !important;
+    font-size:16px !important;
 }
 
 button{
     border-radius:10px !important;
+}
+
+.response-box{
+    font-size:16px;
+    line-height:1.7;
 }
 
 </style>
@@ -72,32 +78,34 @@ st.caption("Stateless AI — every request runs independently.")
 st.divider()
 
 # -------------------------
-# Control Bar
+# Advanced Controls
 # -------------------------
-col1, col2, col3 = st.columns(3)
+with st.expander("⚙ Advanced settings"):
 
-with col1:
-    temperature = st.slider(
-        "Temperature",
-        0.0,1.0,0.5
-    )
+    col1, col2, col3 = st.columns(3)
 
-with col2:
-    max_tokens = st.slider(
-        "Max tokens",
-        64,2048,512
-    )
+    with col1:
+        temperature = st.slider(
+            "Temperature",
+            0.0,1.0,0.5
+        )
 
-with col3:
-    mode = st.selectbox(
-        "Mode",
-        [
-            "Normal",
-            "Explain Simply",
-            "Deep Analysis",
-            "Code Expert"
-        ]
-    )
+    with col2:
+        max_tokens = st.slider(
+            "Max tokens",
+            64,2048,512
+        )
+
+    with col3:
+        mode = st.selectbox(
+            "Mode",
+            [
+                "Normal",
+                "Explain Simply",
+                "Deep Analysis",
+                "Code Expert"
+            ]
+        )
 
 # -------------------------
 # Mode Prompts
@@ -112,22 +120,26 @@ mode_prompts = {
 # -------------------------
 # Prompt
 # -------------------------
+if "prompt" not in st.session_state:
+    st.session_state.prompt=""
+
 prompt = st.text_area(
 "Prompt",
+value=st.session_state.prompt,
 placeholder="Describe what you want the AI to generate...",
-height=140
+height=150
 )
 
 generate = st.button("Generate", use_container_width=True)
 
 # -------------------------
-# Response Generator
+# Streaming Generator
 # -------------------------
 def stream_response(user_prompt):
 
     start = time.time()
 
-    system_prompt = mode_prompts[mode]
+    system_prompt = mode_prompts.get(mode,"")
 
     messages = []
 
@@ -150,8 +162,8 @@ def stream_response(user_prompt):
         stream=True
     )
 
-    full_text = ""
-    placeholder = st.empty()
+    full_text=""
+    placeholder=st.empty()
 
     for chunk in stream:
 
@@ -159,11 +171,13 @@ def stream_response(user_prompt):
 
         if delta:
             full_text += delta
-            placeholder.markdown(full_text)
+            placeholder.markdown(full_text + "▌")
 
-    latency = round(time.time() - start,2)
+    placeholder.markdown(full_text)
 
-    return full_text, latency
+    latency = round(time.time()-start,2)
+
+    return full_text,latency
 
 # -------------------------
 # Run Generation
@@ -174,18 +188,20 @@ if generate and prompt:
 
         response_text, latency = stream_response(prompt)
 
+        st.session_state.last_response = response_text
+
         st.divider()
 
         token_estimate = int(len(response_text.split()) * 1.3)
 
         st.caption(
-            f"Model: {MODEL_NAME} | Latency: {latency}s | Estimated tokens: {token_estimate}"
+            f"{MODEL_NAME} • {latency}s • ~{token_estimate} tokens"
         )
 
         # -------------------------
         # Response Tools
         # -------------------------
-        col1, col2, col3, col4 = st.columns(4)
+        col1,col2,col3,col4,col5,col6 = st.columns(6)
 
         with col1:
             st.download_button(
@@ -196,18 +212,37 @@ if generate and prompt:
             )
 
         with col2:
-            if st.button("Summarize", use_container_width=True):
-                st.rerun()
+            st.code(response_text)
 
         with col3:
-            if st.button("Expand", use_container_width=True):
+            if st.button("Summarize",use_container_width=True):
+                st.session_state.prompt = f"Summarize this:\n\n{response_text}"
                 st.rerun()
 
         with col4:
-            if st.button("Simplify", use_container_width=True):
+            if st.button("Expand",use_container_width=True):
+                st.session_state.prompt = f"Expand this explanation:\n\n{response_text}"
                 st.rerun()
 
-        # Expandable response
+        with col5:
+            if st.button("Simplify",use_container_width=True):
+                st.session_state.prompt = f"Explain this more simply:\n\n{response_text}"
+                st.rerun()
+
+        with col6:
+            if st.button("Improve",use_container_width=True):
+                st.session_state.prompt = f"Improve this answer:\n\n{response_text}"
+                st.rerun()
+
+        # -------------------------
+        # Code detection
+        # -------------------------
+        if "```" in response_text:
+            st.markdown(response_text)
+        else:
+            st.write(response_text)
+
+        # Expandable view
         with st.expander("Full response"):
             st.markdown(response_text)
 
