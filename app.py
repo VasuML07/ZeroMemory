@@ -20,11 +20,15 @@ if not api_key:
     st.error("GROQ_API_KEY not found. Add it to Streamlit secrets or .env file.")
     st.stop()
 
+# -------------------------
 # Initialize Groq client
+# -------------------------
 client = OpenAI(
     api_key=api_key,
     base_url="https://api.groq.com/openai/v1"
 )
+
+MODEL_NAME = "llama-3.1-8b-instant"
 
 # -------------------------
 # Page config
@@ -46,7 +50,6 @@ st.divider()
 # Sidebar
 # -------------------------
 st.sidebar.header("Settings")
-
 
 temperature = st.sidebar.slider(
     "Temperature",
@@ -96,6 +99,7 @@ if "prompt" in st.session_state and not user_input:
     user_input = st.session_state.prompt
     del st.session_state.prompt
 
+
 # -------------------------
 # Response function
 # -------------------------
@@ -104,7 +108,7 @@ def get_response(user_message):
     start_time = time.time()
 
     response = client.chat.completions.create(
-        model=model_name,
+        model=MODEL_NAME,
         messages=[
             {"role": "user", "content": user_message}
         ],
@@ -117,6 +121,7 @@ def get_response(user_message):
     text = response.choices[0].message.content
 
     return text, latency
+
 
 # -------------------------
 # Display response
@@ -139,7 +144,7 @@ if user_input:
                 st.divider()
 
                 st.caption(
-                    f"Model: {model_name} | Latency: {latency}s | Max Tokens: {max_tokens}"
+                    f"Model: {MODEL_NAME} | Latency: {latency}s | Max Tokens: {max_tokens}"
                 )
 
             except Exception as e:
