@@ -4,9 +4,12 @@ import streamlit as st
 import google.generativeai as genai
 from dotenv import load_dotenv
 
+# -------------------------
+# Load environment variables
+# -------------------------
 load_dotenv()
 
-# Try Streamlit secrets first (deployment)
+# Get API key (Streamlit Cloud or local .env)
 api_key = None
 
 if "GEMINI_API_KEY" in st.secrets:
@@ -14,27 +17,37 @@ if "GEMINI_API_KEY" in st.secrets:
 else:
     api_key = os.getenv("GEMINI_API_KEY")
 
+if not api_key:
+    st.error("GEMINI_API_KEY not found. Add it to Streamlit secrets or .env file.")
+    st.stop()
+
+# Configure Gemini
 genai.configure(api_key=api_key)
 
-# Page configuration
+# -------------------------
+# Page config
+# -------------------------
 st.set_page_config(
     page_title="ZeroMemory",
     layout="centered"
 )
 
-# Header
+# -------------------------
+# UI Header
+# -------------------------
 st.title("🧠 ZeroMemory")
-st.caption("Stateless AI — Every request is processed independently.")
+st.caption("Stateless AI — every request is processed independently.")
 
 st.divider()
 
+# -------------------------
 # Sidebar controls
+# -------------------------
 st.sidebar.header("Settings")
 
 model_name = st.sidebar.selectbox(
     "Model",
     [
-        "gemini-pro",
         "gemini-1.5-flash",
         "gemini-1.5-pro"
     ]
@@ -57,11 +70,12 @@ max_tokens = st.sidebar.slider(
 st.sidebar.divider()
 
 st.sidebar.caption(
-    "ZeroMemory does not store conversations. "
-    "Each request is isolated."
+    "ZeroMemory does not store conversations. Each request is isolated."
 )
 
+# -------------------------
 # Example prompts
+# -------------------------
 st.subheader("Try asking")
 
 col1, col2, col3 = st.columns(3)
@@ -72,13 +86,15 @@ with col1:
 
 with col2:
     if st.button("Summarize AI trends"):
-        st.session_state.prompt = "What are the major AI trends in 2025?"
+        st.session_state.prompt = "What are the major AI trends in AI right now?"
 
 with col3:
     if st.button("How do black holes work?"):
-        st.session_state.prompt = "Explain how black holes work"
+        st.session_state.prompt = "Explain how black holes work in simple terms."
 
+# -------------------------
 # Chat input
+# -------------------------
 user_input = st.chat_input("Ask anything")
 
 if "prompt" in st.session_state and not user_input:
@@ -86,11 +102,19 @@ if "prompt" in st.session_state and not user_input:
     del st.session_state.prompt
 
 
+# -------------------------
+# Response function
+# -------------------------
+@st.cache_resource
+def load_model(name):
+    return genai.GenerativeModel(name)
+
+
 def get_response(user_message):
 
     start_time = time.time()
 
-    model = genai.GenerativeModel(model_name)
+    model = load_model(model_name)
 
     response = model.generate_content(
         user_message,
@@ -102,9 +126,19 @@ def get_response(user_message):
 
     latency = round(time.time() - start_time, 2)
 
-    return response.text, latency
+    text = ""
+
+    try:
+        text = response.text
+    except Exception:
+        text = "No response returned."
+
+    return text, latency
 
 
+# -------------------------
+# Display response
+# -------------------------
 if user_input:
 
     with st.chat_message("user"):
